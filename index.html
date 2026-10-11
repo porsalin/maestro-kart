@@ -2285,13 +2285,70 @@ const _mvt34=mvtNames;mvtNames=function(n){if(n===10)return ['ALLEGRO','ANDANTE'
 ROMAN.splice(0,ROMAN.length,'I','II','III','IV','V','VI','VII','VIII','IX','X');ORD.splice(0,ORD.length,'FIRST','SECOND','THIRD','FOURTH','FIFTH','SIXTH','SEVENTH','EIGHTH','NINTH','TENTH');
 const _mm34b=mainMenu;mainMenu=function(){if(![1,3,5,10].includes(G.laps))G.laps=3;_mm34b.apply(this,arguments);const ls=document.querySelector('#ui .lapsel');if(!ls)return;
  ls.innerHTML=`${bmpImg('MOVEMENTS','#ccc',2)} `+[1,3,5,10].map(n=>`<span class="lp ${n===G.laps?'on':''}" onclick="G.laps=${n};mainMenu()">${bmpImg(String(n),n===G.laps?'#ffe066':'#888',2)}</span>`).join('');};
+// ===== pass 35: robust iOS audio — gesture unlock, HTMLAudio music, audioSession, debug =====
+const ADBG={err:[],unlocked:false,taps:0,lastEv:''};
+function adErr(m){ADBG.err.push(String(m).slice(0,80));if(ADBG.err.length>5)ADBG.err.shift();}
+try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){adErr('session '+e);}
+// tiny silent WAV for priming media elements
+const SILENT_WAV=(()=>{const n=441,b=new Uint8Array(44+n*2),v=new DataView(b.buffer),w=(o,s)=>{for(let i=0;i<s.length;i++)b[o+i]=s.charCodeAt(i)};w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,44100,true);v.setUint32(28,88200,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);let s='';b.forEach(x=>s+=String.fromCharCode(x));return 'data:audio/wav;base64,'+btoa(s);})();
+const MEL=[new Audio(),new Audio()];MEL.forEach(a=>{a.preload='auto';a.setAttribute('playsinline','');a.addEventListener('error',()=>adErr('audio el: '+(a.error&&a.error.code)));});
+let _inGesture=false;
+AU.init=function(){if(TEST)return;if(!this.ctx){if(!_inGesture)return;try{this.ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){adErr('ctx '+e);}}
+ if(this.ctx&&this.ctx.state!=='running'&&_inGesture){try{this.ctx.resume();}catch(e){}}};
+function audioUnlock(e){ADBG.taps++;ADBG.lastEv=e.type;_inGesture=true;
+ try{try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback';}catch(_){}
+  AU.init();const c=AU.ctx;
+  if(c){if(c.state!=='running')c.resume().catch(x=>adErr('resume '+x));const b=c.createBuffer(1,1,22050),s=c.createBufferSource();s.buffer=b;s.connect(c.destination);s.start(0);audioBus();}
+  if(!ADBG.unlocked){MEL.forEach(a=>{if(!a.src||a.paused){a.src=SILENT_WAV;a.muted=false;const p=a.play();p&&p.then(()=>{if(a.src===SILENT_WAV)a.pause();}).catch(x=>adErr('prime '+x.name));}});}
+  if(c&&!ADBG.unlocked){ADBG.unlocked=true;const t=document.getElementById('tapsnd');if(t)t.remove();}
+ }catch(x){adErr('unlock '+x);}finally{_inGesture=false;}}
+// window capture runs before any element handler, so stopPropagation elsewhere can't block it
+['touchend','click','keydown','mouseup'].forEach(ev=>window.addEventListener(ev,audioUnlock,{capture:true,passive:true}));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&AU.ctx&&AU.ctx.state!=='running'){AU.ctx.resume().catch(()=>{});}
+ if(document.visibilityState==='hidden'&&MUS.state==='play')musPause();});
+// ---- music via HTMLAudioElement (not muted by the ring/silent switch) ----
+MUS.el=0;MUS.timer=null;
+function musLead2(it){return 0.048;} // AAC priming (2112 samples @44.1k) — skipped at start
+function musVol(){return AU.on?VOL.mus:0;}
+musStart=function(city,offset=0,idx=0){const L=(typeof MUSIC_MAP!=='undefined'&&MUSIC_MAP[city])||[];musStopNow();if(!L.length)return;MUS.city=city;MUS.list=L;MUS.i=idx;MUS.state='load';
+ const a=MEL[MUS.el];a.src=musURL(L[idx].f);a.volume=musVol();a.muted=musVol()===0;
+ const go=()=>{a.removeEventListener('loadedmetadata',go);if(MUS.city!==city||MUS.state!=='load')return;try{a.currentTime=musLead2()+offset;}catch(e){}
+  const p=a.play();(p||Promise.resolve()).then(()=>{if(MUS.city!==city)return;MUS.state='play';MUS.log.push([city,L[idx].f,performance.now()|0]);musPrep();}).catch(x=>{adErr('play '+x.name);MUS.state='stop';MUS.blocked=true;});};
+ a.addEventListener('loadedmetadata',go);a.load();};
+function musPrep(){const ni=(MUS.i+1)%MUS.list.length,b=MEL[1-MUS.el],u=musURL(MUS.list[ni].f);if(MUS.list.length>1&&b.src!==u){b.src=u;b.preload='auto';b.load();}}
+musSchedule=function(){if(MUS.state!=='play')return;const a=MEL[MUS.el],it=MUS.list[MUS.i];a.volume=musVol();a.muted=musVol()===0;
+ if(a.currentTime>=musLead2()+it.len-0.06||a.ended){const ni=(MUS.i+1)%MUS.list.length;
+  if(MUS.list.length===1){a.currentTime=musLead2();if(a.paused)a.play().catch(()=>{});MUS.log.push([MUS.city,it.f,performance.now()|0]);return;}
+  const b=MEL[1-MUS.el];try{b.currentTime=musLead2();}catch(e){}b.volume=musVol();b.muted=a.muted;b.play().catch(x=>adErr('next '+x.name));a.pause();MUS.el=1-MUS.el;MUS.i=ni;MUS.log.push([MUS.city,MUS.list[ni].f,performance.now()|0]);setTimeout(musPrep,300);}};
+musStopNow=function(){MEL.forEach(a=>{try{a.pause()}catch(e){}});MUS.state='stop';};
+musPause=function(){if(MUS.state!=='play')return;const a=MEL[MUS.el];MUS.pausedAt={i:MUS.i,off:Math.max(0,a.currentTime-musLead2()),city:MUS.city};const p=MUS.pausedAt;musStopNow();MUS.pausedAt=p;MUS.state='paused';};
+musFade=function(sec=1.5){if(MUS.state!=='play')return;MUS.state='fading';const a=MEL[MUS.el],v0=a.volume,t0=performance.now();const f=()=>{if(MUS.state!=='fading')return;const k=(performance.now()-t0)/(sec*1000);if(k>=1){musStopNow();return;}try{a.volume=v0*(1-k);}catch(e){}requestAnimationFrame(f);};f();};
+// fast scheduler tick for tight piece changes
+setInterval(()=>{if(MUS.state==='play')musSchedule();},40);
+// retry music on a tap if a play() was blocked
+window.addEventListener('touchend',()=>{if(MUS.blocked&&R&&MUS.state==='stop'){MUS.blocked=false;MUS.city=null;}},true);
+// ---- 'TAP FOR SOUND' badge on the title ----
+(function(){const d=document.createElement('div');d.id='tapsnd';d.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24"><path fill="#ffe066" d="M3 9v6h4l5 5V4L7 9H3z"/><path fill="none" stroke="#ffe066" stroke-width="2" d="M16 8c1.5 1.5 1.5 6.5 0 8M19 5c3 3 3 11 0 14"/></svg><span>TAP FOR SOUND</span>';
+ d.style.cssText='position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:50;display:flex;gap:8px;align-items:center;padding:6px 14px;background:rgba(10,10,30,.85);border:2px solid #ffe066;border-radius:8px;color:#ffe066;font:bold 13px monospace;letter-spacing:1px;animation:tsb 1.2s ease-in-out infinite;pointer-events:auto';
+ const st=document.createElement('style');st.textContent='@keyframes tsb{50%{opacity:.55}}';document.head.appendChild(st);
+ const add=()=>{if(!ADBG.unlocked&&!TEST)document.body.appendChild(d);};document.body?add():addEventListener('DOMContentLoaded',add);
+ setInterval(()=>{if(ADBG.unlocked){d.remove();return;}d.style.display=R?'none':'flex';},300);})();
+// ---- ?debug=1 readout ----
+if(/[?&]debug=1/.test(location.search)){const d=document.createElement('pre');d.id='adbg';d.style.cssText='position:fixed;left:2px;top:2px;z-index:99;margin:0;padding:4px 6px;background:rgba(0,0,0,.75);color:#7f7;font:10px/1.25 monospace;pointer-events:none;max-width:60vw;white-space:pre-wrap';
+ const add=()=>document.body.appendChild(d);document.body?add():addEventListener('DOMContentLoaded',add);
+ setInterval(()=>{const c=AU.ctx,a=MEL[MUS.el];d.textContent=`ctx: ${c?c.state:'none'} sr:${c?c.sampleRate:'-'}  session: ${navigator.audioSession?navigator.audioSession.type:'n/a'}
+unlocked:${ADBG.unlocked} taps:${ADBG.taps} last:${ADBG.lastEv}  AU.on:${AU.on} vol m${VOL.mus} s${VOL.sfx}
+mus: ${MUS.state} ${MUS.city||''} #${MUS.i} ${(MUS.list[MUS.i]||{}).f||''}
+el${MUS.el}: paused:${a.paused} t:${a.currentTime.toFixed(2)} rs:${a.readyState} ns:${a.networkState} err:${a.error?a.error.code:'-'} src:${(a.src||'').slice(-28)}
+canPlay m4a:${a.canPlayType('audio/mp4; codecs="mp4a.40.2"')||'no'}
+errs: ${ADBG.err.join(' | ')||'-'}`;},250);}
 
 // ===== MOBILE LAYER =====
 (function(){const M={tilt:false,steer:0,q:2,frames:[],lowT:0};window.MOBILE=M;
 let touched=false;addEventListener('touchstart',()=>touched=true,{passive:true,capture:true});const vib=ms=>{if(!touched||!navigator.vibrate||(navigator.userActivation&&!navigator.userActivation.hasBeenActive))return;try{navigator.vibrate(ms)}catch(e){}};M.vib=vib;
-// ---- iOS audio unlock on first touch ----
-function unlock(){try{AU.init();const c=AU.ctx;if(c){if(c.state==='suspended')c.resume();const b=c.createBuffer(1,1,22050),s=c.createBufferSource();s.buffer=b;s.connect(c.destination);s.start(0);}}catch(e){}}
-['touchstart','touchend','pointerdown','click'].forEach(ev=>addEventListener(ev,unlock,{passive:true}));
+// (audio unlock moved to part28.js)
+
+
 // ---- block zoom / scroll / pull-to-refresh ----
 addEventListener('gesturestart',e=>e.preventDefault());addEventListener('dblclick',e=>e.preventDefault());
 document.addEventListener('touchmove',e=>{if(!e.target.closest||!e.target.closest('#ui .scroll'))e.preventDefault();},{passive:false});
