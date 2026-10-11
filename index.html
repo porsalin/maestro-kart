@@ -58,7 +58,7 @@ button{display:block;margin:10px auto;padding:10px 26px;font-size:18px;font-fami
 .card canvas{border-radius:8px}.nm{font-weight:bold;font-family:Georgia,serif;font-size:17px;margin:3px 0}.small{font-size:11px;color:#eee}
 .st{display:flex;align-items:center;font-size:10px;gap:4px;height:12px}.st span{width:56px;text-align:left;color:#ccc}.st b{height:6px;border-radius:3px;display:block;flex:none;max-width:60px}.st i{font-style:normal;color:#fff;margin-left:auto}
 table{margin:8px auto;border-collapse:collapse;font-family:sans-serif}td{padding:3px 12px;border-bottom:1px solid #333}tr.me{background:rgba(247,220,111,.25)}.sw{display:inline-block;width:10px;height:10px;margin-right:6px}
-#ui.title{background:transparent;align-items:flex-end;padding-bottom:4vh}#ui.title .tpanel{background:rgba(18,12,24,.78);padding:10px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}.lapsel{margin:8px 0}.lp{cursor:pointer;margin:0 4px}.lp.on img{filter:drop-shadow(0 0 2px #ffe066)}#ui.podium{background:transparent;justify-content:flex-end;align-items:center;padding-right:2vw}.panel.side{max-height:90vh;padding:10px 12px;max-width:34vw}.panel.side button{min-width:200px}.pr{display:flex;align-items:flex-end;justify-content:center;gap:2px}.st{height:11px;justify-content:space-between}.st img{flex:none}.nm{margin:4px 0}.help,.legend{margin:6px 0}button img{vertical-align:middle}
+#ui.title{background:transparent;align-items:flex-end;padding-bottom:2vh}#ui.title .tpanel{background:rgba(18,12,24,.78);padding:4px 24px 8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}.lapsel{margin:8px 0}.lp{cursor:pointer;margin:0 4px}.lp.on img{filter:drop-shadow(0 0 2px #ffe066)}#ui.podium{background:transparent;justify-content:flex-end;align-items:center;padding-right:2vw}.panel.side{max-height:90vh;padding:10px 12px;max-width:34vw}.panel.side button{min-width:200px}.pr{display:flex;align-items:flex-end;justify-content:center;gap:2px}.st{height:11px;justify-content:space-between}.st img{flex:none}.nm{margin:4px 0}.help,.legend{margin:6px 0}button img{vertical-align:middle}
 .sel16 .grid{gap:6px}.sel16 .card{padding:5px}.card.locked{cursor:not-allowed;opacity:.55;display:flex;flex-direction:column;align-items:center;justify-content:center}.fl{display:flex;align-items:center;justify-content:center;gap:4px;margin:2px 0}.sty{min-height:30px;margin:2px 0;line-height:0}.sty img{margin:1px 0}
 .panel{animation:pin .28s cubic-bezier(.2,1.4,.4,1)}@keyframes pin{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}.card{transition:transform .12s,box-shadow .12s}.card:not(.locked):hover{transform:translateY(-3px);box-shadow:0 6px 0 #120c18}.panel.t16 .grid{grid-template-columns:repeat(4,1fr)}.panel.t16 canvas[data-s]{width:150px!important;height:40px!important}.panel.t16 canvas[data-t]{width:110px!important;height:80px!important}.cups{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0}.card.cup{padding:10px}
 .panel.sel20{width:min(96vw,170vh);max-height:98vh;padding:10px 16px;text-align:center;box-sizing:border-box}.g20{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(4,calc((96vh - 120px)/4));gap:6px;margin:6px auto;justify-content:center}
@@ -1853,6 +1853,57 @@ const _bd23=buildDepth;buildDepth=function(tk){_bd23(tk);const hw=tk.hw;tk.block
 function titleKarts23(t){[0,3,6,9].forEach((di,i)=>{const d=DRIVERS[(di+Math.floor(t/6))%16];const set=KIMG[kkey(d)];const im=set&&set.B;if(!im||!im.naturalWidth)return;const nf=knf(kkey(d),im,set);const s=0.42*nf;const w=im.naturalWidth*s,h=im.naturalHeight*s;
   const x0=((t*40+i*120)%(LW+100))-50;lx.imageSmoothingEnabled=true;lx.drawImage(im,Math.round(x0-w/2),Math.round(200+(i%2)*22-h),w,h);lx.imageSmoothingEnabled=false;});}
 const _mm23b=mainMenu;mainMenu=function(){_mm23b.apply(this,arguments);const p=document.querySelector('#ui .tpanel');if(p&&!p.querySelector('.foot23')){const f=document.createElement('div');f.className='foot23';f.style.cssText='text-align:center;margin-top:6px;opacity:.75';f.innerHTML=bmpImg('(C) 2026 SAULT','#998',1);p.appendChild(f);}};
+// ===== Custom karts: pre-rendered pseudo-3D yaw models built from the sheet art =====
+const KMODE={custom:false};try{KMODE.custom=localStorage.getItem('mk_karts')==='custom';}catch(e){}
+const YAWN=32,MODEL={};
+function buildModel(key){const set=KIMG[key];if(!set||!set.C||!set.C.naturalWidth||!set.A.naturalWidth||!set.B.naturalWidth)return null;
+ const nC=knf(key,set.C,set),nA=knf(key,set.A,set),nB=knf(key,set.B,set);
+ const V={C:[set.C,nC],A:[set.A,nA],B:[set.B,nB]};const FW=Math.ceil(Math.max(set.C.naturalWidth*nC,set.A.naturalWidth*nA,set.B.naturalWidth*nB)*1.15),FH=Math.ceil(Math.max(set.C.naturalHeight*nC,set.A.naturalHeight*nA,set.B.naturalHeight*nB)*1.05);
+ const frames=[];
+ for(let i=0;i<YAWN;i++){let a=i*360/YAWN;if(a>180)a-=360;const c=mk(FW,FH),x=c.getContext('2d');x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
+  const side=a>=0?'A':'B',m=Math.abs(a);
+  const put=(v,al,sx,shade)=>{const [im,nf]=V[v];const w=im.naturalWidth*nf*sx,h=im.naturalHeight*nf;x.globalAlpha=al;x.drawImage(im,FW/2-w/2,FH-h,w,h);x.globalAlpha=1;};
+  // blend weights: rear (0deg) <-> 3/4 view (~35deg) <-> profile-ish (90) <-> front-ish (180, uses rear art)
+  if(m<=11)put('C',1,1-m/35*0.06);
+  else if(m<24){const t=(m-11)/13;put('C',1,1-m/35*0.06);put(side,t,0.94+0.06*t);}
+  else if(m<=100)put(side,1,1-Math.max(0,m-35)/65*0.22);
+  else if(m<160)put(side,1,0.78+(m-100)/60*0.07);
+  else{const t=(m-160)/20;put(side,1,0.85);put('C',t,0.95);}
+  // directional shade on the far flank for volume
+  if(m>30&&m<150){x.globalCompositeOperation='source-atop';const g=x.createLinearGradient(0,0,FW,0);const d='rgba(10,8,30,.28)',z='rgba(10,8,30,0)';if(a>0){g.addColorStop(0,z);g.addColorStop(0.6,z);g.addColorStop(1,d);}else{g.addColorStop(0,d);g.addColorStop(0.4,z);g.addColorStop(1,z);}x.fillStyle=g;x.fillRect(0,0,FW,FH);x.globalCompositeOperation='source-over';}
+  frames.push(c);}
+ return {frames,FW,FH};}
+function modelOf(key){if(!MODEL[key]){const m=buildModel(key);if(!m)return null;MODEL[key]=m;}return MODEL[key];}
+function modelFrame(m,yawRad){let a=(yawRad*180/Math.PI)%360;if(a<0)a+=360;return m.frames[Math.round(a/(360/YAWN))%YAWN];}
+const _dk24=drawKartSprite;drawKartSprite=function(k,p){if(!KMODE.custom){_dk24(k,p);return;}
+ const key=kkey(k.d),m=modelOf(key);if(!m){_dk24(k,p);return;}
+ const st=k.st,t=R.time,dt=DT||1/60;const bearing=Math.atan2(k.y-cam.y,k.x-cam.x);
+ // smooth steer/drift yaw, lean, suspension
+ const yawRate=k._myPa==null?0:angDiff(k._myPa,k.a)/Math.max(dt,1e-3);k._myPa=k.a;
+ const tgt=clamp(yawRate*0.18,-0.45,0.45)+(k.mdrift?k.mdrift*0.55:0);k._mys=lerp(k._mys||0,tgt,Math.min(1,dt*8));
+ let yaw=angDiff(bearing,k.a)+k._mys;let lean=-k._mys*0.22,tilt=1,lift=0,rot=0;
+ k._bnc=(k._bnc||0)+dt*(6+k.spd*0.03);const susp=Math.sin(k._bnc)*Math.min(1,k.spd/200)*0.025;tilt=1-susp;
+ if(k.hop>0||k.jump>0)lift=6;
+ const crash=st.spin>0;if(crash){const ph=st.spin;k._cs=(k._cs||0)+dt*14;yaw+=k._cs;rot=Math.sin(ph*9)*0.35*Math.min(1,ph);lift=Math.abs(Math.sin(ph*5))*14*Math.min(1,ph);tilt=1-Math.abs(Math.sin(ph*9))*0.18;}else k._cs=0;
+ let s=p.k*CAMD/230;if(k.isPlayer&&Math.abs(s-1)<0.2)s=1;
+ const fr=modelFrame(m,yaw);const W=m.FW*s,H=m.FH*s;
+ shadowAt(k.x,k.y,9);lx.save();lx.translate(Math.round(p.x),Math.round(p.y+3*s-lift*s));lx.rotate(lean+rot);lx.scale(1,tilt);lx.imageSmoothingEnabled=true;lx.drawImage(fr,-W/2,-H,W,H);
+ if(crash&&Math.floor(t*24)%2||k.hitFlash>0.3){lx.globalCompositeOperation='lighter';lx.globalAlpha=0.4;lx.drawImage(fr,-W/2,-H,W,H);lx.globalAlpha=1;lx.globalCompositeOperation='source-over';}
+ if(st.ghost>0){lx.globalCompositeOperation='destination-out';lx.globalAlpha=0.5;lx.fillRect(-W,-H*1.2,W*2,H*1.4);lx.globalAlpha=1;lx.globalCompositeOperation='source-over';}
+ lx.restore();
+ if(crash){for(let i=0;i<4;i++){const a=t*7+i*Math.PI/2;const sx=p.x+Math.cos(a)*W*0.42,sy=p.y-H-lift*s+Math.sin(a)*H*0.12;const r=Math.max(1.5,3.2*s);lx.fillStyle=i%2?'#ffe066':'#fff';lx.beginPath();for(let q=0;q<10;q++){const rr=q%2?r*0.45:r,aa=q*Math.PI/5-Math.PI/2;lx.lineTo(sx+Math.cos(aa)*rr,sy+Math.sin(aa)*rr);}lx.fill();}
+  for(let i=0;i<3;i++){const ag=((t*1.6+i/3)%1);lx.globalAlpha=(1-ag)*0.45;lx.fillStyle='#d8d4d0';lx.beginPath();lx.arc(p.x+(i-1)*W*0.25,p.y-H*0.3-ag*H*0.6,(4+ag*10)*s,0,TAU);lx.fill();}lx.globalAlpha=1;}
+ kartFX&&kartFX(k,key,p.x,p.y,W,H,!!k.isPlayer);};
+// Options toggle on the title screen (saved in localStorage)
+function kmodeLabel(){return 'KARTS: '+(KMODE.custom?'CUSTOM KARTS':'SPRITES');}
+const _mm24=mainMenu;mainMenu=function(){_mm24.apply(this,arguments);const p=document.querySelector('#ui .tpanel');if(!p||p.querySelector('.kopt'))return;const ref=p.querySelector('button');
+ const b=document.createElement('button');b.className=(ref?ref.className:'')+' kopt';b.style.cssText='display:inline-block;width:auto;min-width:0;height:auto;padding:3px 8px;margin:0 0 0 14px;vertical-align:middle';const upd=()=>{b.innerHTML=bmpImg(kmodeLabel(),KMODE.custom?'#7fffd4':'#fff',1);};upd();
+ b.onclick=e=>{e.stopPropagation();KMODE.custom=!KMODE.custom;try{localStorage.setItem('mk_karts',KMODE.custom?'custom':'sprites');}catch(_){}upd();prebuildModels();AU.note&&AU.note(KMODE.custom?7:0,'square',0.08);};
+ const lap=[...p.children].find(c=>/LAPS/i.test(c.innerHTML)||c.className.indexOf('laps')>=0);if(lap)lap.appendChild(b);else p.appendChild(b);};
+// pre-build the models off the hot path (idle slices) so racing never hitches
+function prebuildModels(){if(!KMODE.custom)return;const keys=DRIVERS.map(kkey).filter(k=>!MODEL[k]);const go=()=>{const k=keys.shift();if(!k)return;modelOf(k);(window.requestIdleCallback||setTimeout)(go);};go();}
+const _nr24=newRace;newRace=function(...a){const r=_nr24.apply(this,a);if(KMODE.custom)(R&&R.karts||[]).forEach(k=>modelOf(kkey(k.d)));return r;};
+addEventListener('load',()=>setTimeout(prebuildModels,800));
 
 // ===== MOBILE LAYER =====
 (function(){const M={tilt:false,steer:0,q:2,frames:[],lowT:0};window.MOBILE=M;
