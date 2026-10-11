@@ -952,7 +952,7 @@ function renderFloor(tk){prepFloor(tk);const W=tk.W,H=tk.H,gp=tk.groundPix,mip=t
  const padA=padStrong(tk)?Math.round(pulse*110):Math.round(pulse*25),padB=Math.round(pulse*40);const flam=[2,5,7,9,11].includes(beat%12)?Math.round(pulse*120):0;const neonCyc=Math.floor(t*6)%3,lightCyc=beat%3;
  const RD=rowTable();for(let y=HZ+1;y<LH;y++){const d=RD[y];if(d<0){floor32.fill(fogC(tk),y*LW,y*LW+LW);continue;}const rx=-CS,ry=CC;const step=d/FOC;const sx=cam.x+CC*d+rx*(-LW/2)*step,sy=cam.y+CS*d+ry*(-LW/2)*step;const stx=rx*step,sty=ry*step;let wx=sx,wy=sy,o=y*LW;
   const lg=Math.log2(Math.max(1e-3,step));const fogR=d>420?Math.min(1,(d-420)/900):0;const by=(y&3)*4;
-  for(let X=0;X<LW;X++,wx+=stx,wy+=sty){const ix=wx|0,iy=wy|0;let c;
+  const xs=(window.FLOOR_LOD===2||(window.FLOOR_LOD===1&&y<HZ+56))?2:1;const sxs=stx*xs,sys=sty*xs;for(let X=0;X<LW;X+=xs,wx+=sxs,wy+=sys){const ix=wx|0,iy=wy|0;let c;
    if(ix>=0&&iy>=0&&ix<W&&iy<H){let L=Math.floor(lg+BAYER[by+(X&3)]-0.2);L=L<0?0:L>3?3:L;const M=mip[L];c=M.px[(iy>>L)*M.w+(ix>>L)];
     const mt=mask[iy*W+ix];if(mt){if(mt===1)c=addC(c,padA);else if(mt===2)c=addC(c,padB);else if(mt===3){if((((ix+iy)>>3)&7)===(beat&7))c=addC(c,Math.round(pulse*90));else c=addC(c,Math.round(pulse*20));}
      else if(mt===4){if(Math.sin(t*18+ix*0.6+iy*0.6)>0.6)c=addC(c,Math.round(30+pulse*70));}else if(mt===5)c=addC(c,flam);
@@ -962,7 +962,7 @@ function renderFloor(tk){prepFloor(tk);const W=tk.W,H=tk.H,gp=tk.groundPix,mip=t
      else if(mt===8){const r=c&255,g=(c>>8)&255,b=(c>>16)&255;c=neonCyc===0?c:neonCyc===1?(0xff000000|(r<<16)|(b<<8)|g):(0xff000000|(g<<16)|(r<<8)|b);}}}
    else{c=gp[((iy&127)<<7)|(ix&127)];}
    if(fogR>0){const th=BAYER[by+(X&3)];if(fogR>th)c=(((c>>>1)&0x7f7f7f)+((fog>>>1)&0x7f7f7f))|0xff000000;if(fogR>0.6+th*0.4)c=(((c>>>1)&0x7f7f7f)+((fog>>>1)&0x7f7f7f))|0xff000000;}
-   floor32[o+X]=c;}}
+   floor32[o+X]=c;if(xs>1)floor32[o+X+1]=c;}}
  lx.putImageData(floorImg,0,0,0,HZ+1,LW,LH-HZ-1);}
 // ---- roadside props per city ----
 const PROPSET={Oslo:['troll','lampIce','fenceWood','troll'],Warsaw:['lampGreen','pianoStatue','stand','fenceIron'],Brussels:['lampVict','waffle','organPipe','bollard'],Helsinki:['birch','lampIce','sauna','birch'],Budapest:['lampGold','paprika','fenceIron','statue'],Dublin:['lampGreen','harp','door','fenceWood'],'New York':['hydrant','lampVict','sign','fenceMesh'],Bucharest:['lampGold','fiddleStand','fenceWood','statue'],Vienna:['lampGold','statue','stand','fence'],Paris:['lampGreen','stand','fenceIron','lampGreen'],Moscow:['lampIce','fenceSnow','snowman','fenceSnow'],Berlin:['barrier','speaker','fenceMesh','barrier'],
@@ -1817,7 +1817,8 @@ const _sk23=stepKart;stepKart=function(k,inp,dt,racing){const st=k.st;
 kartSheetView=function(k){if(k.st.spin>0)return 0;if(k.mdrift){k._tv=k.mdrift;return k.mdrift*DRIFT_FLIP;}
  // turning: smoothed own yaw rate (negative = turning left), threshold + hysteresis
  const t=R.time;if(k._vt!==t){const dt=Math.max(1e-3,t-(k._vt??t-1/60));const yr=k._pa==null?0:angDiff(k._pa,k.a)/dt;k._pa=k.a;k._vt=t;k._yr=lerp(k._yr||0,yr,0.25);
-  const a=Math.abs(k._yr),sg=Math.sign(k._yr);if(!k._tv){if(a>1.5&&k.spd>40){k._th=(k._th||0)+dt;if(k._th>0.1)k._tv=sg;}else k._th=0;}else if(a<0.65||sg!==k._tv){k._tv=0;k._th=0;}}
+  const a=Math.abs(k._yr),sg=Math.sign(k._yr);const si=k.isPlayer&&k._sin?k._sin:0;const on=(a>1.05&&k.spd>40)||(Math.abs(si)>0.3&&k.spd>40);const sg2=a>1.05?sg:Math.sign(si)*(window.STEER_YAW_SIGN||1);
+  if(!k._tv){if(on){k._th=(k._th||0)+dt;if(k._th>0.04)k._tv=sg2;}else k._th=0;}else if((a<0.5&&Math.abs(si)<0.2)||(a>1.05&&sg!==k._tv)||(Math.abs(si)>0.3&&Math.sign(si)*(window.STEER_YAW_SIGN||1)!==k._tv)){k._tv=0;k._th=0;}}
  return (k._tv||0)*DRIFT_FLIP;};
 // input hint
 const _mm23=mainMenu;mainMenu=function(){_mm23.apply(this,arguments);const h=document.querySelector('#ui .help');if(h&&!window.MOBILE)h.innerHTML=bmpImg('ARROWS/WASD DRIVE - SHIFT DRIFT - SPACE ITEM - ESC PAUSE','#bbb',1);};
@@ -2053,6 +2054,16 @@ const _hud30=drawHUD;drawHUD=function(...a){_hud30(...a);const pl=R&&R.karts[0];
  if(R._mv){const M=R._mv;M.t+=DT;const t=M.t;if(t<2.8){const e=t<0.5?easeOutBack(t/0.5):t>2.3?1-(t-2.3)/0.5:1;const y=88;lx.globalAlpha=Math.max(0,Math.min(1,e));lx.fillStyle='rgba(18,12,24,.75)';lx.fillRect(0,y-4,LW,26);lx.fillStyle='#ffe066';lx.fillRect(0,y-4,LW,2);lx.fillRect(0,y+20,LW,2);lx.globalAlpha=1;
   const xx=Math.round(-220+e*(LW/2+220));ptext(M.txt,xx,y+2,'#ffe066',14,'center');}else R._mv=null;}};
 
+// ---- pass 31: no per-frame wet reflections; cheap static sheen; custom karts only ----
+for(const k in WET)delete WET[k];
+const SHEEN=(()=>{const c=mk(LW,LH),x=c.getContext('2d');const g=x.createLinearGradient(0,HZ,0,LH);g.addColorStop(0,'rgba(190,210,240,0.16)');g.addColorStop(0.35,'rgba(160,185,220,0.07)');g.addColorStop(1,'rgba(120,140,180,0)');x.fillStyle=g;x.fillRect(0,HZ,LW,LH-HZ);return c;})();
+const RAINY={London:1,Dublin:1,Berlin:1,'New York':1};
+const _dov31=drawOverlay;drawOverlay=function(T){if(RAINY[T.name]&&R){lx.drawImage(SHEEN,0,0);}return _dov31(T);};
+KMODE.custom=true;try{localStorage.removeItem('mk_karts');}catch(e){}
+const _pin31=playerInput;playerInput=function(){const inp=_pin31();if(R&&R.karts[0])R.karts[0]._sin=inp.steer||0;return inp;};
+addKartsToggle=function(){document.querySelectorAll('.kopt').forEach(e=>e.remove());};
+const _sk31=stepKart;stepKart=function(k,inp,dt,racing){if(k.isPlayer)k._sin=(inp&&!R.auto)?(inp.steer||0):0;return _sk31(k,inp,dt,racing);};
+
 // ===== MOBILE LAYER =====
 (function(){const M={tilt:false,steer:0,q:2,frames:[],lowT:0};window.MOBILE=M;
 let touched=false;addEventListener('touchstart',()=>touched=true,{passive:true,capture:true});const vib=ms=>{if(!touched||!navigator.vibrate||(navigator.userActivation&&!navigator.userActivation.hasBeenActive))return;try{navigator.vibrate(ms)}catch(e){}};M.vib=vib;
@@ -2066,8 +2077,8 @@ let lastT=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-las
 // ---- crisp fit: backing store at devicePixelRatio, integer-ish scale ----
 document.documentElement.classList.add('mob');
 const vvW=()=>Math.round((window.visualViewport&&visualViewport.width)||innerWidth),vvH=()=>Math.round((window.visualViewport&&visualViewport.height)||innerHeight);M.vvW=vvW;M.vvH=vvH;
-const _rs=resize;resize=function(){const dpr=Math.min(devicePixelRatio||1,M.q>=2?3:M.q>=1?2:1.5);const w=vvW(),h=vvH();const de=document.documentElement;de.style.setProperty('--vw',w+'px');de.style.setProperty('--vh',h+'px');
- cv.style.width=w+'px';cv.style.height=h+'px';const u=document.getElementById('ui');if(u){u.style.width=w+'px';u.style.height=h+'px';u.style.inset='auto';u.style.left='0';u.style.top='0';}
+const _rs=resize;resize=function(){const w=vvW(),h=vvH();const dpr=Math.max(LW/w,LH/h);const de=document.documentElement;de.style.setProperty('--vw',w+'px');de.style.setProperty('--vh',h+'px');
+ cv.style.width=w+'px';cv.style.height=h+'px';cv.style.imageRendering='pixelated';const u=document.getElementById('ui');if(u){u.style.width=w+'px';u.style.height=h+'px';u.style.inset='auto';u.style.left='0';u.style.top='0';}
  VW=cv.width=Math.round(w*dpr);VH=cv.height=Math.round(h*dpr);cx.imageSmoothingEnabled=false;window.scrollTo(0,0);};
 if(window.visualViewport){visualViewport.addEventListener('resize',()=>{resize();fitSoon();});visualViewport.addEventListener('scroll',()=>window.scrollTo(0,0));}
 let fitSoon=()=>{};
@@ -2102,7 +2113,7 @@ const SAVE={wet:Object.assign({},WET)};
 function applyQ(q){M.q=q;
  for(const k in WET)delete WET[k];if(q>=2)Object.assign(WET,SAVE.wet);
  TRACKS.forEach(T=>{if(!T.wx)return;T.wx._d0=T.wx._d0??(T.wx.dens||1);T.wx.dens=T.wx._d0*(q>=2?1:q===1?0.6:0.3);});if(typeof WXP!=='undefined')WXP.T=null;
- window.MOB_NOFAR=q<2;window.MOB_NOBLD=q<1;resize();}
+ window.FLOOR_LOD=q>=2?1:2;window.MOB_NOFAR=q<2;window.MOB_NOBLD=q<1;resize();}
 if(typeof ensureTrees==='function'){const _et=ensureTrees;ensureTrees=function(tk){_et(tk);if(!tk._allTrees)tk._allTrees=tk.trees;tk.trees=window.MOB_NOFAR?tk._allTrees.filter(t=>!t.far):tk._allTrees;};}
 if(typeof bldDetail==='function'){const _bd=bldDetail;bldDetail=function(...a){if(!window.MOB_NOBLD)_bd(...a);};}
 const lowEnd=(navigator.hardwareConcurrency||4)<=4||(navigator.deviceMemory||4)<=3;applyQ(lowEnd?1:2);
