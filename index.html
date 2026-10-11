@@ -1861,14 +1861,14 @@ function buildModel(key){const set=KIMG[key];if(!set||!set.C||!set.C.naturalWidt
  const V={C:[set.C,nC],A:[set.A,nA],B:[set.B,nB]};const FW=Math.ceil(Math.max(set.C.naturalWidth*nC,set.A.naturalWidth*nA,set.B.naturalWidth*nB)*1.15),FH=Math.ceil(Math.max(set.C.naturalHeight*nC,set.A.naturalHeight*nA,set.B.naturalHeight*nB)*1.05);
  const frames=[];
  for(let i=0;i<YAWN;i++){let a=i*360/YAWN;if(a>180)a-=360;const c=mk(FW,FH),x=c.getContext('2d');x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
-  const side=a>=0?'A':'B',m=Math.abs(a);
+  const side=a>=0?'B':'A',m=Math.abs(a);
   const put=(v,al,sx,shade)=>{const [im,nf]=V[v];const w=im.naturalWidth*nf*sx,h=im.naturalHeight*nf;x.globalAlpha=al;x.drawImage(im,FW/2-w/2,FH-h,w,h);x.globalAlpha=1;};
   // blend weights: rear (0deg) <-> 3/4 view (~35deg) <-> profile-ish (90) <-> front-ish (180, uses rear art)
-  if(m<=11)put('C',1,1-m/35*0.06);
-  else if(m<24){const t=(m-11)/13;put('C',1,1-m/35*0.06);put(side,t,0.94+0.06*t);}
+  // ONE clean source view per frame (hard switch at the midpoint), squeezed for in-between yaws
+  if(m<=17)put('C',1,1-m/17*0.05);
   else if(m<=100)put(side,1,1-Math.max(0,m-35)/65*0.22);
-  else if(m<160)put(side,1,0.78+(m-100)/60*0.07);
-  else{const t=(m-160)/20;put(side,1,0.85);put('C',t,0.95);}
+  else if(m<=150)put(side,1,0.78+(m-100)/50*0.07);
+  else put('C',1,0.85+(m-150)/30*0.1);
   // directional shade on the far flank for volume
   if(m>30&&m<150){x.globalCompositeOperation='source-atop';const g=x.createLinearGradient(0,0,FW,0);const d='rgba(10,8,30,.28)',z='rgba(10,8,30,0)';if(a>0){g.addColorStop(0,z);g.addColorStop(0.6,z);g.addColorStop(1,d);}else{g.addColorStop(0,d);g.addColorStop(0.4,z);g.addColorStop(1,z);}x.fillStyle=g;x.fillRect(0,0,FW,FH);x.globalCompositeOperation='source-over';}
   frames.push(c);}
@@ -1905,6 +1905,12 @@ const _mm24=mainMenu;mainMenu=function(){_mm24.apply(this,arguments);addKartsTog
 function prebuildModels(){if(!KMODE.custom)return;const keys=DRIVERS.map(kkey).filter(k=>!MODEL[k]);const go=()=>{const k=keys.shift();if(!k)return;modelOf(k);(window.requestIdleCallback||setTimeout)(go);};go();}
 const _nr24=newRace;newRace=function(...a){const r=_nr24.apply(this,a);if(KMODE.custom)(R&&R.karts||[]).forEach(k=>modelOf(kkey(k.d)));return r;};
 addEventListener('load',()=>setTimeout(prebuildModels,800));
+// distant horizon: sky/skyline/landmark layers pan at ~0.2x camera yaw, smoothed (layer ratios kept)
+const SKYK=0.2;let SKY_A=null,SKY_P=null,SKY_S=0;
+const _dsl24=drawSkyLayers;drawSkyLayers=function(T){const real=CA;
+ if(SKY_A===null||!R||R._skyR!==R){SKY_A=real;SKY_P=real;SKY_S=real;if(R)R._skyR=R;}
+ SKY_A+=angDiff(SKY_P,real)*SKYK;SKY_P=real;SKY_S+=angDiff(SKY_S,SKY_A)*0.2;
+ CA=SKY_S;try{_dsl24(T);}finally{CA=real;}};
 
 // ===== MOBILE LAYER =====
 (function(){const M={tilt:false,steer:0,q:2,frames:[],lowT:0};window.MOBILE=M;
