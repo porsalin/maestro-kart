@@ -1256,7 +1256,7 @@ function cloudSpr(T,i){return spr('cloud'+T.name+i,()=>{const c=mk(64,20),x=c.ge
 function drawSkyLayers(T){lx.drawImage(skyBase(T),0,0);const t=R?R.time:0;
  if(T.lighting==='aurora'){for(let b=0;b<3;b++){for(let X=0;X<LW;X+=2){const y=10+b*9+Math.sin(X*0.025+t*0.8+b)*7+Math.sin(X*0.07-t*1.3)*3;const hue=(120+b*40+Math.sin(X*0.01+t)*40+t*20)%360;lx.fillStyle=`hsla(${hue},100%,60%,${0.18-b*0.04})`;lx.fillRect(X,Math.round(y),2,14-b*3);}}}
  // clouds (animated, parallax)
- for(let i=0;i<5;i++){const cs=cloudSpr(T,i);const px=((i*173+t*(4+i*1.5)-(CA/TAU)*LW*1.5)%(LW+80)+LW+80)%(LW+80)-64;lx.globalAlpha=T.tod==='night'?0.35:0.85;lx.drawImage(cs,Math.round(px),6+i*9);}lx.globalAlpha=1;
+ for(let i=0;i<5;i++){const cs=cloudSpr(T,i);const px=((i*173+t*(4+i*1.5)+(CA/TAU)*LW*1.5)%(LW+80)+LW+80)%(LW+80)-64;lx.globalAlpha=T.tod==='night'?0.35:0.85;lx.drawImage(cs,Math.round(px),6+i*9);}lx.globalAlpha=1;
  const rg=farRidge(T);const o1=((-CA/TAU)*rg.width*0.8%rg.width+rg.width)%rg.width;for(let i=-1;i<2;i++)lx.drawImage(rg,Math.floor(i*rg.width-o1),HZ+1-rg.height-14);
  const sk=skyline(T);// mid layer: hazed, smaller
  const mid=spr('mid'+T.name,()=>{const c=mk(sk.width,Math.round(sk.height*0.7)),x=c.getContext('2d');x.drawImage(sk,0,0,c.width,c.height);x.globalCompositeOperation='source-atop';x.fillStyle=todOf(T).sky[2];x.globalAlpha=0.45;x.fillRect(0,0,c.width,c.height);return c;});
@@ -1807,7 +1807,11 @@ const _sk23=stepKart;stepKart=function(k,inp,dt,racing){const st=k.st;
  if(!(st.spin>0)&&racing&&k.spd>60&&want){if(!k.mdrift)k.mdrift=dirS||1;}else if(k.mdrift&&(!want||k.spd<60||st.spin>0))k.mdrift=0;
  _sk23(k,inp,dt,racing);
  if(k.mdrift){k.a+=k.mdrift*dt*0.42*clamp(k.spd/200,0.4,1.1);k.dir=k.dir+angDiff(k.a-k.mdrift*0.32,k.dir)*Math.min(1,dt*6);}};
-kartSheetView=function(k){return k.mdrift&&!(k.st.spin>0)?k.mdrift*DRIFT_FLIP:0;};
+kartSheetView=function(k){if(k.st.spin>0)return 0;if(k.mdrift){k._tv=k.mdrift;return k.mdrift*DRIFT_FLIP;}
+ // turning: smoothed own yaw rate (negative = turning left), threshold + hysteresis
+ const t=R.time;if(k._vt!==t){const dt=Math.max(1e-3,t-(k._vt??t-1/60));const yr=k._pa==null?0:angDiff(k._pa,k.a)/dt;k._pa=k.a;k._vt=t;k._yr=lerp(k._yr||0,yr,0.25);
+  const a=Math.abs(k._yr),sg=Math.sign(k._yr);if(!k._tv){if(a>0.9&&k.spd>40)k._tv=sg;}else if(a<0.45||sg!==k._tv)k._tv=a>0.9?sg:0;}
+ return (k._tv||0)*DRIFT_FLIP;};
 // input hint
 const _mm23=mainMenu;mainMenu=function(){_mm23.apply(this,arguments);const h=document.querySelector('#ui .help');if(h&&!window.MOBILE)h.innerHTML=bmpImg('ARROWS/WASD DRIVE - SHIFT DRIFT - SPACE ITEM - ESC PAUSE','#bbb',1);};
 // ---- crash: keep the rear sprite, add wobble/bounce/stars/smoke/flash; no 3D spin model ----
@@ -1893,7 +1897,7 @@ const _dk24=drawKartSprite;drawKartSprite=function(k,p){if(!KMODE.custom){_dk24(
  const st=k.st,t=R.time,dt=DT||1/60;const bearing=Math.atan2(k.y-cam.y,k.x-cam.x);
  // smooth steer/drift yaw, lean, suspension
  const yawRate=k._myPa==null?0:angDiff(k._myPa,k.a)/Math.max(dt,1e-3);k._myPa=k.a;
- const tgt=clamp(yawRate*0.18,-0.45,0.45)+(k.mdrift?k.mdrift*0.55:0);k._mys=lerp(k._mys||0,tgt,Math.min(1,dt*8));
+ const tgt=clamp(yawRate*0.3,-0.5,0.5)+(k.mdrift?k.mdrift*0.55:0);k._mys=lerp(k._mys||0,tgt,Math.min(1,dt*8));
  let yaw=angDiff(bearing,k.a)+k._mys;let lean=-k._mys*0.22,tilt=1,lift=0,rot=0;
  k._bnc=(k._bnc||0)+dt*(6+k.spd*0.03);const susp=Math.sin(k._bnc)*Math.min(1,k.spd/200)*0.025;tilt=1-susp;
  if(k.hop>0||k.jump>0)lift=6;
@@ -1919,10 +1923,11 @@ function prebuildModels(){if(!KMODE.custom)return;const keys=DRIVERS.map(kkey).f
 const _nr24=newRace;newRace=function(...a){const r=_nr24.apply(this,a);if(KMODE.custom)(R&&R.karts||[]).forEach(k=>modelOf(kkey(k.d)));return r;};
 addEventListener('load',()=>setTimeout(prebuildModels,800));
 // distant horizon: sky/skyline/landmark layers pan at ~0.2x camera yaw, smoothed (layer ratios kept)
-const SKYK=0.2;let SKY_A=null,SKY_P=null,SKY_S=0;
+const SKYK=0.2;let SKY_U=0,SKY_P=null,SKY_S=0,SKY_R=null;
+// layers are drawn at x = +CA*k*w: pass a NEGATED, slowed, unwrapped heading so turning left slides the horizon right (with the road)
 const _dsl24=drawSkyLayers;drawSkyLayers=function(T){const real=CA;
- if(SKY_A===null||!R||R._skyR!==R){SKY_A=real;SKY_P=real;SKY_S=real;if(R)R._skyR=R;}
- SKY_A+=angDiff(SKY_P,real)*SKYK;SKY_P=real;SKY_S+=angDiff(SKY_S,SKY_A)*0.2;
+ if(SKY_R!==R){SKY_R=R;SKY_U=real;SKY_P=real;SKY_S=-real*SKYK;}
+ SKY_U+=angDiff(SKY_P,real);SKY_P=real;const tgt=-SKY_U*SKYK;SKY_S+=(tgt-SKY_S)*0.35;
  CA=SKY_S;try{_dsl24(T);}finally{CA=real;}};
 // ===== Period pass: every course set c.1840-1860 =====
 const SUBS={Berlin:'Unter den Linden Gallop',Barcelona:'Old Quarter Rambla','New York':'Broadway Gaslight',London:'West End Gaslit Downpour'};
@@ -2004,6 +2009,11 @@ LANDMARK.trinity=()=>LMK(50,130,({R,T,W})=>{R(4,84,42,46,'#9a8270');R(16,40,18,4
  document.addEventListener('pointerup',e=>{const i=idx(e);if(i>=0&&i===downI&&i<DRIVERS.length)selPick(i);downI=-1;},true);
  document.addEventListener('touchend',e=>{const t=e.changedTouches&&e.changedTouches[0];if(!t)return;const el=document.elementFromPoint(t.clientX,t.clientY);const c=el&&el.closest&&el.closest('#ui .pb');if(c){const i=+c.dataset.i;if(i>=0&&i<DRIVERS.length)selPick(i);}},true);
  const _ds=driverSelect;driverSelect=function(){_ds.apply(this,arguments);if(matchMedia('(hover: none)').matches)UI.querySelectorAll('.pb[onmouseenter]').forEach(c=>c.removeAttribute('onmouseenter'));};})();
+// ---- wider roads (x1.45) and fewer on-track hazards (~1/3, signature ones kept) ----
+TRACKS.forEach(T=>{if(!T._w0){T._w0=T.w;T.w=Math.round(T.w*1.45);}});
+const _btk25b=buildTrack;buildTrack=function(...a){const tk=_btk25b(...a);
+ ['bells','patches','vents','taxis','fountains'].forEach(k=>{const A=tk[k];if(!A||!A.length)return;const n=Math.max(1,Math.round(A.length/3));const step=A.length/n;tk[k]=Array.from({length:n},(_,i)=>A[Math.floor(i*step+step/2)%A.length]);});
+ return tk;};
 
 // ===== MOBILE LAYER =====
 (function(){const M={tilt:false,steer:0,q:2,frames:[],lowT:0};window.MOBILE=M;
