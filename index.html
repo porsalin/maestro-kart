@@ -1896,10 +1896,11 @@ const _dk24=drawKartSprite;drawKartSprite=function(k,p){if(!KMODE.custom){_dk24(
  kartFX&&kartFX(k,key,p.x,p.y,W,H,!!k.isPlayer);};
 // Options toggle on the title screen (saved in localStorage)
 function kmodeLabel(){return 'KARTS: '+(KMODE.custom?'CUSTOM KARTS':'SPRITES');}
-const _mm24=mainMenu;mainMenu=function(){_mm24.apply(this,arguments);const p=document.querySelector('#ui .tpanel');if(!p||p.querySelector('.kopt'))return;const ref=p.querySelector('button');
+function addKartsToggle(){const p=document.querySelector('#ui.title .tpanel')||document.querySelector('#ui .tpanel');if(!p||p.querySelector('.kopt'))return;const ref=p.querySelector('button');
  const b=document.createElement('button');b.className=(ref?ref.className:'')+' kopt';b.style.cssText='display:inline-block;width:auto;min-width:0;height:auto;padding:3px 8px;margin:0 0 0 14px;vertical-align:middle';const upd=()=>{b.innerHTML=bmpImg(kmodeLabel(),KMODE.custom?'#7fffd4':'#fff',1);};upd();
  b.onclick=e=>{e.stopPropagation();KMODE.custom=!KMODE.custom;try{localStorage.setItem('mk_karts',KMODE.custom?'custom':'sprites');}catch(_){}upd();prebuildModels();AU.note&&AU.note(KMODE.custom?7:0,'square',0.08);};
- const lap=[...p.children].find(c=>/LAPS/i.test(c.innerHTML)||c.className.indexOf('laps')>=0);if(lap)lap.appendChild(b);else p.appendChild(b);};
+ const lap=[...p.children].find(c=>/LAPS/i.test(c.innerHTML)||c.className.indexOf('laps')>=0);if(lap)lap.appendChild(b);else p.appendChild(b);}
+const _mm24=mainMenu;mainMenu=function(){_mm24.apply(this,arguments);addKartsToggle();};
 // pre-build the models off the hot path (idle slices) so racing never hitches
 function prebuildModels(){if(!KMODE.custom)return;const keys=DRIVERS.map(kkey).filter(k=>!MODEL[k]);const go=()=>{const k=keys.shift();if(!k)return;modelOf(k);(window.requestIdleCallback||setTimeout)(go);};go();}
 const _nr24=newRace;newRace=function(...a){const r=_nr24.apply(this,a);if(KMODE.custom)(R&&R.karts||[]).forEach(k=>modelOf(kkey(k.d)));return r;};
@@ -2002,7 +2003,7 @@ document.addEventListener('click',e=>{if(e.target.closest('#ui [onclick],#ui but
 
 (function(){const _mm=mainMenu;mainMenu=function(){_mm.apply(this,arguments);const h=document.querySelector('#ui .help');if(h)h.innerHTML=bmpImg('TOUCH: PAD STEERS - ITEM ABOVE IT - GO / DRIFT / BRAKE ON THE RIGHT','#ddd',1)+'<br>'+bmpImg('TAP TO SELECT - DOUBLE-TAP OR CONFIRM TO GO','#aaa',1);};if(UI&&UI.classList.contains('title'))mainMenu();})();
 // title on phone: panel sits under the logo, scaled into the lower part of the frame
-(function(){function fitTitle(){const ui=document.getElementById('ui');if(!ui||ui.className.indexOf('title')<0)return;const p=ui.querySelector('.tpanel');if(!p)return;
+(function(){function fitTitle(){const ui=document.getElementById('ui');if(!ui||ui.className.indexOf('title')<0)return;typeof addKartsToggle==='function'&&addKartsToggle();const p=ui.querySelector('.tpanel');if(!p)return;
  p.style.setProperty('zoom','1','important');const cv=document.querySelector('canvas');const r=cv.getBoundingClientRect();const nav=document.getElementById('mnav');const nh=nav&&nav.offsetParent?nav.getBoundingClientRect().height:0;
  const availH=r.height*0.6-nh-8,availW=r.width*0.9;const s=Math.min(1,availH/p.offsetHeight,availW/p.offsetWidth);
  const u=ui.getBoundingClientRect();const st=(k,v)=>p.style.setProperty(k,v,'important');st('animation','none');st('transform','none');st('margin','0');st('position','absolute');st('zoom',String(s));st('left',((r.left-u.left+r.width/2)/s-p.offsetWidth/2)+'px');st('top',((r.top-u.top+r.height*0.37)/s)+'px');}
