@@ -142,7 +142,7 @@ table{margin:8px auto;border-collapse:collapse;font-family:sans-serif}td{padding
 .diffsel .dbtn{cursor:pointer;padding:6px 12px;border:2px solid #6a5a2a;border-radius:6px;background:rgba(0,0,0,.35);min-width:70px;text-align:center}
 .diffsel .dbtn.on{border-color:#ffe066;background:rgba(80,60,10,.6);box-shadow:0 0 8px #d4af37}
 .panel.pausep{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:280px}
-</style></head><body><canvas id=c></canvas><div id=ui></div><script>
+</style><style>.volsel{display:flex;justify-content:center;gap:10px;margin:4px 0}.volsel .vbtn{cursor:pointer;padding:5px 10px;border:2px solid #4a4a6a;border-radius:6px;background:rgba(0,0,0,.35)}</style></head><body><canvas id=c></canvas><div id=ui></div><script>
 var EXTRA_TEX={},EXTRA_DECOR={},EXTRA_SKY={},EXTRA_LAND={};
 'use strict';
 // ================= DATA =================
@@ -2200,6 +2200,91 @@ function restartRace(){G.paused=false;hide();const ti=TRACKS.indexOf(R.tk.T);sta
 pauseToggle=function(){if(!R)return;G.paused=!G.paused;if(G.paused)show(`<div class="panel pausep">${bmpImg('PAUSED','#ffe066',3)}${btn('Resume','pauseToggle()')}${btn('Restart Race','restartRace()')}${btn('Quit to Main Menu','G.paused=false;G.gp=null;mainMenu()')}</div>`);else hide();};
 (function(){if(window.MOBILE_BUILD)return;const b=document.createElement('button');b.id='menuBtn';b.textContent='☰ MENU';b.onclick=()=>{if(R&&!G.podium)pauseToggle();};document.body.appendChild(b);
  setInterval(()=>{b.style.display=(R&&!G.podium&&!G.paused&&!window.MOBILE)?'block':'none';},200);})();
+const MUSIC_MAP={"Vienna": [{"f": "mozart_eine_kleine_nachtmusik", "len": 91.6665306122449}, {"f": "mozart_rondo_alla_turca", "len": 120.0}, {"f": "mozart_symphony_40", "len": 72.0}], "Berlin": [{"f": "beethoven_moonlight_sonata_3", "len": 153.0}, {"f": "beethoven_symphony_5_mvt1", "len": 154.37501133786847}, {"f": "beethoven_tempest_sonata", "len": 68.57136054421768}], "Warsaw": [{"f": "chopin_fantaisie_impromptu", "len": 171.80927437641722}, {"f": "chopin_heroic_polonaise", "len": 161.29634920634922}, {"f": "chopin_revolutionary_etude", "len": 139.77621315192744}], "Paris": [{"f": "debussy_arabesque_1", "len": 176.24972789115645}, {"f": "debussy_clair_de_lune", "len": 224.14285714285714}, {"f": "debussy_golliwogs_cakewalk", "len": 143.93984126984128}], "Moscow": [{"f": "tchaikovsky_sleeping_beauty_waltz", "len": 185.0}, {"f": "tchaikovsky_swan_lake", "len": 93.33328798185941}, {"f": "tchaikovsky_waltz_of_the_flowers", "len": 64.0}], "Oslo": [{"f": "grieg_hall_of_the_mountain_king", "len": 145.99643990929704}, {"f": "grieg_march_of_the_dwarfs", "len": 97.10526077097505}, {"f": "grieg_puck", "len": 84.88673469387756}], "Prague": [{"f": "dvorak_serenade_for_strings", "len": 64.73684807256235}, {"f": "dvorak_symphony_9_mvt4", "len": 175.26278911564626}], "Budapest": [{"f": "liszt_hungarian_rhapsody_2_friska", "len": 101.89210884353741}, {"f": "liszt_la_campanella", "len": 231.76648526077096}, {"f": "liszt_liebestraum_3", "len": 236.8121088435374}], "New York": [{"f": "gershwin_an_american_in_paris", "len": 57.6}, {"f": "gershwin_rhapsody_in_blue", "len": 76.8}], "Brussels": [{"f": "franck_symphony_d_minor_mvt2", "len": 113.68410430839002}, {"f": "franck_violin_sonata_mvt2", "len": 90.9090022675737}], "Helsinki": [{"f": "sibelius_finlandia", "len": 116.36351473922902}], "London": [{"f": "elgar_pomp_and_circumstance_1", "len": 83.47814058956916}, {"f": "elgar_salut_d_amour", "len": 75.789410430839}, {"f": "elgar_serenade_for_strings", "len": 72.0}], "Barcelona": [{"f": "albeniz_asturias", "len": 193.60489795918366}, {"f": "albeniz_sevilla", "len": 204.1696371882086}], "Rome": [{"f": "rossini_barber_of_seville_overture", "len": 56.72721088435374}, {"f": "rossini_thieving_magpie_overture", "len": 61.07142857142857}, {"f": "rossini_william_tell_overture", "len": 61.71421768707483}], "Dublin": [{"f": "field_nocturne_1", "len": 74.99997732426304}, {"f": "field_nocturne_13", "len": 135.0}, {"f": "field_nocturne_3", "len": 60.0}], "Bucharest": [{"f": "liszt_hungarian_rhapsody_2_friska", "len": 101.89210884353741, "borrowed": 1}, {"f": "dvorak_serenade_for_strings", "len": 64.73684807256235, "borrowed": 1}]};
+// ===== pass 34: course soundtracks, SFX, 10 movements =====
+const MUSIC_BASE='music/'; // mobile build sets a URL folder; desktop uses embedded MUSIC_DATA
+const VOL={mus:0.8,sfx:0.9};try{const v=JSON.parse(localStorage.getItem('mk_vol')||'null');if(v)Object.assign(VOL,v);}catch(e){}
+function saveVol(){try{localStorage.setItem('mk_vol',JSON.stringify(VOL))}catch(e){}}
+let MUSG=null,SFXG=null;
+function audioBus(){const c=AU.ctx;if(!c)return false;if(!MUSG){MUSG=c.createGain();MUSG.gain.value=AU.on?VOL.mus:0;MUSG.connect(c.destination);SFXG=c.createGain();SFXG.gain.value=AU.on?VOL.sfx:0;SFXG.connect(c.destination);}return true;}
+// route the existing synth notes through the SFX bus
+AU.note=function(semi,type='triangle',dur=0.18,vol=0.08){const c=this.ctx;if(!c||!this.on||!audioBus())return;try{const o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.value=440*Math.pow(2,semi/12);g.gain.setValueAtTime(vol,c.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+dur);o.connect(g);g.connect(SFXG);o.start();o.stop(c.currentTime+dur+0.02);}catch(e){}};
+// ---- music player: gapless Web Audio playlist per course ----
+const MUS={buf:{},loading:{},city:null,list:[],i:0,src:null,t0:0,off:0,next:null,state:'stop',fadeT:0,log:[]};
+function musURL(f){return MUSIC_BASE?MUSIC_BASE+f+'.m4a':(typeof MUSIC_DATA!=='undefined'?MUSIC_DATA[f]:null);}
+function musLoad(f){if(MUS.buf[f])return Promise.resolve(MUS.buf[f]);if(MUS.loading[f])return MUS.loading[f];const u=musURL(f);if(!u||!AU.ctx)return Promise.reject('nourl');
+ MUS.loading[f]=fetch(u).then(r=>r.arrayBuffer()).then(a=>new Promise((res,rej)=>AU.ctx.decodeAudioData(a,res,rej))).then(b=>{MUS.buf[f]=b;return b;});return MUS.loading[f];}
+function musLead(b,len){const ex=b.duration-len;return ex>0.005?Math.min(ex,0.0479):0;} // skip AAC priming
+function musPlayAt(idx,when,offset){const c=AU.ctx,it=MUS.list[idx];const b=MUS.buf[it.f];if(!b)return null;const s=c.createBufferSource();s.buffer=b;s.connect(MUSG);const lead=musLead(b,it.len);s.start(when,lead+offset);s.stop(when+it.len-offset);return s;}
+function musSchedule(){const c=AU.ctx;if(MUS.state!=='play')return;const it=MUS.list[MUS.i];const end=MUS.t0+it.len-MUS.off;
+ const ni=(MUS.i+1)%MUS.list.length;musLoad(MUS.list[ni].f).catch(()=>{});
+ if(!MUS.next&&MUS.buf[MUS.list[ni].f]&&end-c.currentTime<2.5){MUS.next={src:musPlayAt(ni,end,0),i:ni,t0:end};}
+ if(MUS.next&&c.currentTime>=MUS.next.t0){MUS.src=MUS.next.src;MUS.i=MUS.next.i;MUS.t0=MUS.next.t0;MUS.off=0;MUS.next=null;MUS.log.push([MUS.city,MUS.list[MUS.i].f,+c.currentTime.toFixed(3)]);}}
+function musStart(city,offset=0,idx=0){if(!AU.ctx||!audioBus())return;const L=(typeof MUSIC_MAP!=='undefined'&&MUSIC_MAP[city])||[];musStopNow();if(!L.length)return;MUS.city=city;MUS.list=L;MUS.i=idx;MUS.state='load';
+ musLoad(L[idx].f).then(()=>{if(MUS.city!==city||MUS.state!=='load')return;const c=AU.ctx;MUSG.gain.cancelScheduledValues(c.currentTime);MUSG.gain.setValueAtTime(AU.on?VOL.mus:0,c.currentTime);MUS.t0=c.currentTime+0.05;MUS.off=offset;MUS.src=musPlayAt(idx,MUS.t0,offset);MUS.state='play';MUS.log.push([city,L[idx].f,+MUS.t0.toFixed(3)]);}).catch(e=>{MUS.state='stop';});}
+function musStopNow(){[MUS.src,MUS.next&&MUS.next.src].forEach(s=>{try{s&&s.stop()}catch(e){}});MUS.src=null;MUS.next=null;MUS.state='stop';}
+function musPause(){if(MUS.state!=='play')return;const c=AU.ctx;MUS.pausedAt={i:MUS.i,off:Math.max(0,c.currentTime-MUS.t0+MUS.off),city:MUS.city};const p=MUS.pausedAt;musStopNow();MUS.pausedAt=p;MUS.state='paused';}
+function musResume(){const p=MUS.pausedAt;if(!p)return;MUS.pausedAt=null;musStart(p.city,p.off%MUS.list[p.i].len,p.i);}
+function musFade(sec=1.5){if(MUS.state!=='play'||!MUSG)return;const c=AU.ctx;MUSG.gain.cancelScheduledValues(c.currentTime);MUSG.gain.setValueAtTime(MUSG.gain.value,c.currentTime);MUSG.gain.linearRampToValueAtTime(0,c.currentTime+sec);MUS.state='fading';setTimeout(()=>{if(MUS.state==='fading')musStopNow();},sec*1000+50);}
+// state watcher (race start / pause / results / quit)
+setInterval(()=>{if(!AU.ctx)return;const racing=R&&!G.podium&&(R.phase==='count'||R.phase==='race');const city=R&&R.tk&&R.tk.T.name;
+ if(racing&&!G.paused){if(MUS.state==='paused'&&MUS.pausedAt&&MUS.pausedAt.city===city)musResume();else if(MUS.city!==city||MUS.state==='stop'||MUS.state==='fading')musStart(city);musSchedule();}
+ else if(racing&&G.paused){musPause();}
+ else if(R&&(R.phase==='done'||G.podium)){if(MUS.state==='play')musFade(1.8);}
+ else if(!R){if(MUS.state==='play'||MUS.state==='paused'){musFade(0.6);MUS.pausedAt=null;}}
+ if(MUSG)MUSG.gain.value=MUS.state==='fading'?MUSG.gain.value:(AU.on?VOL.mus:0);if(SFXG)SFXG.gain.value=AU.on?VOL.sfx:0;},100);
+// ---- synthesized SFX ----
+let NOISE=null;function noiseBuf(){if(!NOISE){const c=AU.ctx,b=c.createBuffer(1,c.sampleRate*1,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;NOISE=b;}return NOISE;}
+const SFX={
+ noise(dur,f0,f1,vol=0.15,type='bandpass',q=1.2){const c=AU.ctx;if(!c||!AU.on||!audioBus())return;const s=c.createBufferSource();s.buffer=noiseBuf();const fl=c.createBiquadFilter();fl.type=type;fl.Q.value=q;const t=c.currentTime;fl.frequency.setValueAtTime(f0,t);fl.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t+dur);const g=c.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);s.connect(fl);fl.connect(g);g.connect(SFXG);s.start(t);s.stop(t+dur+0.02);},
+ tone(f0,f1,dur,type='square',vol=0.06,delay=0){const c=AU.ctx;if(!c||!AU.on||!audioBus())return;const o=c.createOscillator(),g=c.createGain(),t=c.currentTime+delay;o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g);g.connect(SFXG);o.start(t);o.stop(t+dur+0.02);},
+ seq(semis,step=0.07,type='square',vol=0.06,dur=0.12){semis.forEach((s,i)=>SFX.tone(440*Math.pow(2,s/12),440*Math.pow(2,s/12),dur,type,vol,i*step));},
+ boost(){SFX.noise(0.45,600,3500,0.12,'bandpass',0.8);SFX.tone(180,520,0.35,'sawtooth',0.035);},
+ pickup(){SFX.seq([12,16,19,24],0.05,'square',0.05,0.09);},
+ tick(){SFX.tone(1400,1400,0.025,'square',0.03);},
+ crash(){SFX.noise(0.5,1800,120,0.25,'lowpass',0.7);SFX.tone(160,50,0.35,'triangle',0.12);},
+ bump(){SFX.noise(0.12,400,90,0.18,'lowpass',1);SFX.tone(110,60,0.1,'sine',0.12);},
+ beep(hi){SFX.tone(hi?1320:660,hi?1320:660,hi?0.45:0.18,'square',0.07);},
+ chime(){SFX.seq([7,12,16],0.09,'triangle',0.08,0.3);},
+ finish(){SFX.seq([0,4,7,12,7,12,16,19,24],0.1,'square',0.06,0.18);},
+ move(){SFX.tone(900,900,0.03,'square',0.035);},select(){SFX.seq([12,19],0.06,'square',0.05,0.08);},back(){SFX.seq([7,0],0.06,'square',0.05,0.08);},
+ hit(){SFX.seq([4,1,-2,-5],0.05,'sawtooth',0.06,0.1);},
+};
+// per-item musical use sounds (motifs)
+const ISND={Crescendo:[[0,4,7,12,16],0.08,'sawtooth'],Staccato:[[12],0.05,'square'],Sustain:[[0,7],0.2,'triangle'],Sforzando:[[-12,0],0.03,'sawtooth'],Mute:[[0,-12],0.12,'sine'],Rubato:[[7,5,4,2],0.14,'triangle'],Fortissimo:[[-24,-12,0],0.04,'sawtooth'],Pianissimo:[[24,28,31],0.12,'sine'],Arpeggio:[[0,4,7,12,16,19],0.045,'square'],Triad:[[0,4,7],0.06,'square'],Coda:[[0,4,7,12,7,12,16,24],0.06,'square'],Trill:[[12,14,12,14,12,14],0.035,'square'],Tremolo:[[0,0,0,0],0.04,'triangle'],Legato:[[0,2,4,5,7],0.1,'sine'],Glissando:[[0,2,4,5,7,9,11,12,14,16],0.03,'triangle'],Pizzicato:[[19],0.05,'triangle'],Slur:[[0,5,12],0.08,'sine'],Fin:[[12,7,4,0,24],0.08,'sine']};
+const _ui34=useItem;useItem=function(k){const n=k.item,ok=n&&!(k.roll>0);_ui34(k);if(ok&&k.isPlayer&&ISND[n]){const [s,st,ty]=ISND[n];SFX.seq(s,st,ty,0.06,0.14);if(['Sforzando','Fortissimo'].includes(n))SFX.noise(0.6,2000,100,0.2,'lowpass',0.6);}};
+const _hit34=hit;hit=function(k,kind,src){const r=_hit34(k,kind,src);if(r&&k.isPlayer){SFX.crash();}else if(r&&src&&src.isPlayer)SFX.hit();return r;};
+const _pb34=pickBox;pickBox=function(k,...a){const had=k.item||k.roll>0;const r=_pb34(k,...a);if(k.isPlayer&&!had&&(k.roll>0||k.item))SFX.pickup();return r;};
+// engine hum + drift screech (continuous), boost / bump / countdown / lap / finish watchers
+const ENG={o:null,o2:null,g:null,sq:null,sqg:null};
+function engineUpdate(){const c=AU.ctx;if(!c||!audioBus())return;const pl=R&&R.karts&&R.karts[0];const on=pl&&!G.paused&&!G.podium&&(R.phase==='race'||R.phase==='count')&&AU.on;
+ if(!ENG.o){ENG.o=c.createOscillator();ENG.o.type='sawtooth';ENG.o2=c.createOscillator();ENG.o2.type='square';const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=700;ENG.g=c.createGain();ENG.g.gain.value=0;ENG.o.connect(lp);ENG.o2.connect(lp);lp.connect(ENG.g);ENG.g.connect(SFXG);ENG.o.start();ENG.o2.start();
+  const s=c.createBufferSource();s.buffer=noiseBuf();s.loop=true;const f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=2600;f.Q.value=6;ENG.sqg=c.createGain();ENG.sqg.gain.value=0;s.connect(f);f.connect(ENG.sqg);ENG.sqg.connect(SFXG);s.start();ENG.sq=s;}
+ const t=c.currentTime;if(!on){ENG.g.gain.setTargetAtTime(0,t,0.05);ENG.sqg.gain.setTargetAtTime(0,t,0.05);return;}
+ const r=clamp(Math.abs(pl.spd)/Math.max(1,pl.maxS),0,1.6);const f=55+r*110;ENG.o.frequency.setTargetAtTime(f,t,0.05);ENG.o2.frequency.setTargetAtTime(f*0.5,t,0.05);ENG.g.gain.setTargetAtTime(0.025+r*0.02,t,0.08);
+ ENG.sqg.gain.setTargetAtTime(pl.mdrift&&pl.spd>80?0.05:0,t,0.04);}
+const W34={};
+setInterval(()=>{engineUpdate();if(!R||!R.karts)return;const pl=R.karts[0],st=pl.st;
+ if(R.phase==='count'){const n=Math.ceil(R.count||0);if(W34.cnt!==n&&n>0){SFX.beep(false);}W34.cnt=n;}
+ if(R.phase==='race'&&W34.ph==='count')SFX.beep(true);W34.ph=R.phase;
+ if(st.boost>0&&!(W34.boost>0)&&R.phase==='race')SFX.boost();W34.boost=st.boost;
+ if(pl.roll>0){W34.tk=(W34.tk||0)+1;if(W34.tk%1===0)SFX.tick();}
+ const nearWall=Math.abs(pl.lat)>=R.tk.wall-1;if(nearWall&&!W34.wall&&pl.spd>60)SFX.bump();W34.wall=nearWall;
+ if(W34.lap!==undefined&&pl.lap>W34.lap&&!pl.finished&&pl.lap<R.laps-1)SFX.chime();W34.lap=pl.lap;
+ if(pl.finished&&!W34.fin)SFX.finish();W34.fin=pl.finished;if(!R)W34.fin=false;},70);
+// menu sounds
+document.addEventListener('click',e=>{const b=e.target.closest('button,[onclick],.lp,.dbtn,.cup,.tcard,.pcard,.card');if(!b)return;const t=(b.textContent||'')+(b.getAttribute('onclick')||'');if(/BACK|Back|mainMenu\(\)|< /.test(t))SFX.back();else SFX.select();},true);
+addEventListener('keydown',e=>{if(!R&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyQ','KeyE','PageUp','PageDown'].includes(e.code))SFX.move();if(!R&&e.code==='Escape')SFX.back();});
+// ---- volume controls on the title ----
+const _mm34=mainMenu;mainMenu=function(){_mm34.apply(this,arguments);const p=document.querySelector('#ui .tpanel');if(!p||p.querySelector('.volsel'))return;const d=document.createElement('div');d.className='volsel';
+ const lab=()=>`<span class="vbtn" data-k="mus">${bmpImg('MUSIC '+Math.round(VOL.mus*10),'#ffe066',2)}</span><span class="vbtn" data-k="sfx">${bmpImg('SFX '+Math.round(VOL.sfx*10),'#7fd8ff',2)}</span>`;d.innerHTML=lab();
+ const ds=p.querySelector('.diffsel');(ds?ds.parentNode:p).insertBefore(d,ds?ds.nextSibling:null);
+ d.addEventListener('click',e=>{const b=e.target.closest('.vbtn');if(!b)return;AU.init();audioBus();const k=b.dataset.k;VOL[k]=Math.round(VOL[k]*10)>=10?0:Math.round(VOL[k]*10+2)/10;if(VOL[k]>1)VOL[k]=1;saveVol();d.innerHTML=lab();SFX.select();});};
+// ---- laps: 1, 3, 5, 10 and ten movement names ----
+const _mvt34=mvtNames;mvtNames=function(n){if(n===10)return ['ALLEGRO','ANDANTE','MINUET','SCHERZO','ADAGIO','RONDO','LARGO','PRESTO','INTERMEZZO','FINALE'];return _mvt34(n);};
+ROMAN.splice(0,ROMAN.length,'I','II','III','IV','V','VI','VII','VIII','IX','X');ORD.splice(0,ORD.length,'FIRST','SECOND','THIRD','FOURTH','FIFTH','SIXTH','SEVENTH','EIGHTH','NINTH','TENTH');
+const _mm34b=mainMenu;mainMenu=function(){if(![1,3,5,10].includes(G.laps))G.laps=3;_mm34b.apply(this,arguments);const ls=document.querySelector('#ui .lapsel');if(!ls)return;
+ ls.innerHTML=`${bmpImg('MOVEMENTS','#ccc',2)} `+[1,3,5,10].map(n=>`<span class="lp ${n===G.laps?'on':''}" onclick="G.laps=${n};mainMenu()">${bmpImg(String(n),n===G.laps?'#ffe066':'#888',2)}</span>`).join('');};
 
 // ===== MOBILE LAYER =====
 (function(){const M={tilt:false,steer:0,q:2,frames:[],lowT:0};window.MOBILE=M;
